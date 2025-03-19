@@ -4,8 +4,13 @@ import json
 from scheduler import book_timeslot
 import re
 import api_key
+import threading
+import time
 
 api_key = api_key.api['api_key']
+
+# Список для хранения событий
+events_list = []
 
 def getLastMessage(offset=None):
     url = "https://api.telegram.org/bot{}/getUpdates".format(api_key)
@@ -53,9 +58,31 @@ def parse_event_message(message):
 
     return time, day, event
 
+def add_event_to_list(event_time, event_date, event_name, chat_id):
+    event_datetime = datetime.datetime.strptime(f"{event_date} {event_time}", "%d.%m.%Y %H:%M")
+    events_list.append({
+        "datetime": event_datetime,
+        "name": event_name,
+        "chat_id": chat_id
+    })
+
+def check_reminders():
+    while True:
+        now = datetime.datetime.now()
+        for event in events_list[:]:  
+            time_difference = (event["datetime"] - now).total_seconds()
+            if 0 < time_difference <= 1800:  
+                reminder_message = f"⏰ Напоминание: событие '{event['name']}' начнется через 30 минут!"
+                sendMessage(event["chat_id"], reminder_message)
+                events_list.remove(event)  
+        time.sleep(60)  
+
 def run():
     offset = None  
 
+    #  поток для проверки напоминаний
+    reminder_thread = threading.Thread(target=check_reminders, daemon=True)
+    reminder_thread.start()
     while True:
         try:
             current_last_msg, chat_id, current_update_id, user_name, offset = getLastMessage(offset)
@@ -64,20 +91,21 @@ def run():
             if "@timeassistBot" in current_last_msg:
                 message = current_last_msg.replace(f"@timeassistBot", "").strip()
                 parsed_event = parse_event_message(message)
-                if parsed_event[0]:  # Проверяем, что парсинг прошел успешно
+                if parsed_event[0]:  
                     time, day, event = parsed_event
-                    # Отправляем подтверждение
-                    sendMessage(chat_id, f"Событие добавлено: {event} на {day} в {time}.")
-                    # Создаем событие в календаре
+                    # sendMessage(chat_id, f"Событие добавлено: {event} на {day} в {time}.")
+                    
                     response = book_timeslot(event, time, day, user_name)
                     if response:
                         sendMessage(chat_id, "Событие успешно добавлено в календарь!")
+                        # Добавляем событие в список для напоминаний
+                        add_event_to_list(time, day, event, chat_id)
                     else:
                         sendMessage(chat_id, "Ошибка при добавлении события в календарь.")
                 else:
                     sendMessage(chat_id, "Неправильный формат. Используйте: время, день, событие.")
             else:
-                continue  # Игнорируем сообщения без тега бота
+                continue 
 
         except Exception as e:
             print(f"Ошибка: {e}")
