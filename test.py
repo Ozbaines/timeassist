@@ -84,7 +84,7 @@ def sendInlineMessageForBookingTime(chat_id):
         ]}
     elif 18 <= int(current_hour) < 24:
         keyboard = {'keyboard': [
-            [{'text': '20:00'}],
+            [{'text': '19:00'}],
         ]}    
     else:
         return sendMessage(chat_id, 'Please try again tmr')
@@ -111,7 +111,7 @@ def run():
             elif current_last_msg in ['Cut', 'Dye', 'Perm', 'Reborn']:
                 event_description = current_last_msg
                 sendInlineMessageForBookingTime(chat_id)
-            elif current_last_msg in ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00']:
+            elif current_last_msg in ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '19:00']:
                 booking_time = current_last_msg
                 update_id_for_booking_of_time_slot = current_update_id
                 sendMessage(chat_id, "Please enter email address:")
