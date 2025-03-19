@@ -26,7 +26,7 @@ def getLastMessage(offset=None):
     chat_id = last_update['message']['chat']['id']
     update_id = last_update['update_id']
     user_name = last_update['message']['from'].get('first_name', 'Unknown')  # Имя пользователя
-    return last_msg, chat_id, update_id, user_name, update_id + 1  # Возвращаем update_id + 1 для offset
+    return last_msg, chat_id, update_id, user_name, update_id + 1  
 
 def sendMessage(chat_id, text_message):
     url = 'https://api.telegram.org/bot' + str(api_key) + '/sendMessage?text=' + str(text_message) + '&chat_id=' + str(chat_id)
@@ -54,19 +54,15 @@ def parse_event_message(message):
     return time, day, event
 
 def run():
-    offset = None  # Инициализируем offset
+    offset = None  
 
     while True:
         try:
             current_last_msg, chat_id, current_update_id, user_name, offset = getLastMessage(offset)
             if current_last_msg is None:
-                continue  # Нет новых сообщений, ждем
-
-            # Проверяем, что сообщение содержит тег бота
+                continue  
             if "@timeassistBot" in current_last_msg:
-                # Убираем тег бота из сообщения
                 message = current_last_msg.replace(f"@timeassistBot", "").strip()
-                # Парсим сообщение
                 parsed_event = parse_event_message(message)
                 if parsed_event[0]:  # Проверяем, что парсинг прошел успешно
                     time, day, event = parsed_event
