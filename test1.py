@@ -1,0 +1,117 @@
+import requests
+import datetime
+import json
+from scheduler import book_timeslot
+import re
+import threading
+import time
+import os
+
+
+with open('config.json', 'r') as config_file:
+    config = json.load(config_file)
+    api_key = config['api_key']
+
+# Список для хранения событий
+events_list = []
+def getLastMessage(offset=None):
+    url = "https://api.telegram.org/bot{}/getUpdates".format(api_key)
+    params = {"timeout": 60, "offset": offset} if offset else {"timeout": 60}
+    response = requests.get(url, params=params)
+    data = response.json()
+
+    if not data.get('result'):
+        print("Нет новых сообщений.")
+        return None, None, None, None, offset
+
+    last_update = data['result'][-1]
+    if 'message' not in last_update:
+        print("Сообщение не содержит данных 'message'.")
+        return None, None, None, None, offset
+
+    last_msg = last_update['message'].get('text', '')
+    chat_id = last_update['message']['chat']['id']
+    update_id = last_update['update_id']
+    user_name = last_update['message']['from'].get('first_name', 'Unknown')  # Имя пользователя
+    return last_msg, chat_id, update_id, user_name, update_id + 1  
+
+def sendMessage(chat_id, text_message):
+    url = 'https://api.telegram.org/bot' + str(api_key) + '/sendMessage?text=' + str(text_message) + '&chat_id=' + str(chat_id)
+    response = requests.get(url)
+    return response
+
+def parse_event_message(message):
+    date_pattern = r"(?:\d{2}[./-]\d{2}[./-]\d{4}|\d{4}[./-]\d{2}[./-]\d{2})"
+    time_pattern = r"\d{2}:\d{2}"
+    datedetect = re.search(date_pattern, message)
+    if datedetect:
+        date = datedetect.group(0)
+        day = date.replace('/', '.')
+        text = message.replace(date, "")
+    else:
+        return None, None, None
+
+    timedetect = re.search(time_pattern, message)
+    if timedetect:
+        time = timedetect.group(0)
+        event = text.replace(time, "")
+    else:
+        return None, None, None
+
+    return time, day, event
+
+def add_event_to_list(event_time, event_date, event_name, chat_id):
+    event_datetime = datetime.datetime.strptime(f"{event_date} {event_time}", "%d.%m.%Y %H:%M")
+    events_list.append({
+        "datetime": event_datetime,
+        "name": event_name,
+        "chat_id": chat_id
+    })
+
+def check_reminders():
+    while True:
+        now = datetime.datetime.now()
+        for event in events_list[:]:  
+            time_difference = (event["datetime"] - now).total_seconds()
+            if 0 < time_difference <= 1800:  
+                reminder_message = f"⏰ Напоминание: событие '{event['name']}' начнется через 30 минут!"
+                sendMessage(event["chat_id"], reminder_message)
+                events_list.remove(event)  
+        time.sleep(60)  
+
+def run():
+    offset = None  
+
+    #  поток для проверки напоминаний
+    reminder_thread = threading.Thread(target=check_reminders, daemon=True)
+    reminder_thread.start()
+    while True:
+        try:
+            current_last_msg, chat_id, current_update_id, user_name, offset = getLastMessage(offset)
+            if current_last_msg is None:
+                continue  
+            if "@timeassistBot" in current_last_msg:
+                message = current_last_msg.replace(f"@timeassistBot", "").strip()
+                parsed_event = parse_event_message(message)
+                if parsed_event[0]:  
+                    time, day, event = parsed_event
+                    # sendMessage(chat_id, f"Событие добавлено: {event} на {day} в {time}.")
+                    
+                    response = book_timeslot(event, time, day, user_name)
+                    if response:
+                        sendMessage(chat_id, "Событие успешно добавлено в календарь!")
+                        # Добавляем событие в список для напоминаний
+                        add_event_to_list(time, day, event, chat_id)
+                    else:
+                        sendMessage(chat_id, "Ошибка при добавлении события в календарь.")
+                else:
+                    sendMessage(chat_id, "Неправильный формат. Используйте: время, день, событие.")
+            else:
+                continue 
+
+        except Exception as e:
+            print(f"Ошибка: {e}")
+            continue
+
+if __name__ == "__main__":
+    run()

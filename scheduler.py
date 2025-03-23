@@ -35,7 +35,7 @@ def book_timeslot(event_description, time, day, user_name):
         start_time = event_date.replace(hour=event_time.hour, minute=event_time.minute, second=0, microsecond=0).isoformat() + "+03:00"  # Moscow time
         end_time = (event_date.replace(hour=event_time.hour, minute=event_time.minute, second=0, microsecond=0) + datetime.timedelta(hours=1)).isoformat() + "+03:00"  # Moscow time
     except ValueError:
-        return False  # Если формат времени или дня неправильный
+        return None  # Если формат времени или дня неправильный
 
     event = {
         'summary': f"{event_description} (от {user_name})",  # Добавляем имя пользователя в описание
@@ -61,4 +61,21 @@ def book_timeslot(event_description, time, day, user_name):
     }
     event = service.events().insert(calendarId='primary', body=event).execute()
     print('Event created: %s' % (event.get('htmlLink')))
-    return True
+    return event['id']  # Возвращаем ID события
+
+def check_event_exists(event_id):
+    """
+    Проверяет, существует ли событие с указанным event_id в календаре.
+    Возвращает True, если событие существует и не удалено.
+    """
+    service = get_calendar_service()
+    try:
+        event = service.events().get(calendarId='primary', eventId=event_id).execute()
+        if event.get('status') == 'cancelled':
+            print(f"Событие отменено (ID: {event_id}).")
+            return False  # Событие удалено
+        print(f"Событие найдено: {event['summary']} (ID: {event_id})")
+        return True  # Событие существует
+    except Exception as e:
+        print(f"Событие не найдено (ID: {event_id}): {e}")
+        return False  # Событие не существует
