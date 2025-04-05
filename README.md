@@ -29,6 +29,6 @@
 
 ### Установка
 ```bash
-git clone https://github.com/yourusername/timeassist-bot.git
-cd timeassist-bot
+git clone https://github.com/Ozbaines/timeassist.git
+cd timeassist
 cp config/config.example.json config/config.json
