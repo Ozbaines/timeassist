@@ -5,22 +5,23 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
+
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 def get_calendar_service():
     creds = None
-    if os.path.exists('/timeassist/src/config/token.pickle'):
-        with open('/timeassist/src/config/token.pickle', 'rb') as token:
+    if os.path.exists('config/token.pickle'):  #/timeassist/src/config/token.pickle
+        with open('config/token.pickle', 'rb') as token: #/timeassist/src/config/token.pickle
             creds = pickle.load(token)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                '/timeassist/src/config/credentials.json', SCOPES)
+                'config/config/credentials.json', SCOPES) #/timeassist/src/config/config/credentials.json
             creds = flow.run_local_server(port=55560)
-        with open('/timeassist/src/config/token.pickle', 'wb') as token:
+        with open('config/token.pickle', 'wb') as token: #/timeassist/src/config/token.pickle
             pickle.dump(creds, token)
     return build('calendar', 'v3', credentials=creds)
 
@@ -48,7 +49,7 @@ def book_timeslot(event_description, time, day, user_name):
             'timeZone': 'Europe/Moscow',
         },
         'attendees': [
-            {'email': 'ozzybaines95@gmail.ru'},  # Все события добавляются в этот календарь
+            {'email': 'ozzybaines95@gmail.com'},  # Все события добавляются в этот календарь
         ],
         'reminders': {
             'useDefault': False,

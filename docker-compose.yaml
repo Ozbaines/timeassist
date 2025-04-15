@@ -1,0 +1,24 @@
+version: "3"  
+
+services:
+  timeassist-bot:  
+    container_name: container_timeassist 
+    build:
+      context: .  
+      dockerfile: Dockerfile  
+    environment:
+      - TZ=Europe/Moscow  
+    restart: always  
+    networks:
+      - timeassist-net  
+
+
+volumes:
+  data:  
+  config: 
+  logs:  
+
+
+networks:
+  timeassist-net:  
+    driver: bridge 

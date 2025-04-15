@@ -17,7 +17,7 @@ events_list = []
 
 # Именованный кортеж для возврата данных из getLastMessage
 MessageData = namedtuple(
-    "MessageData", ["last_msg", "chat_id", "update_id", "user_name", "message_id"]
+    "MessageData", ["last_msg", "chat_id", "update_id", "user_name"]
 )
 
 
@@ -40,19 +40,9 @@ def getLastMessage(offset=None):
     chat_id = last_update["message"]["chat"]["id"]
     update_id = last_update["update_id"]
     user_name = last_update["message"]["from"].get("first_name", "Unknown")
-    message_id = last_update["message"]["message_id"]
 
-    return MessageData(last_msg, chat_id, update_id, user_name, message_id), update_id + 1
+    return MessageData(last_msg, chat_id, update_id, user_name), update_id + 1
 
-def setMessageReaction(chat_id, message_id, reaction=None):
-    url = f"https://api.telegram.org/bot{api_key}/setMessageReaction"
-    payload = {
-        "chat_id": chat_id,
-        "message_id": message_id,
-        "reaction": reaction if reaction else [{"type": "emoji", "emoji": "👍"}]
-    }
-    response = requests.post(url, json=payload)
-    return response.json()
 
 def sendMessage(chat_id, text_message):
     url = f"https://api.telegram.org/bot{api_key}/sendMessage?text={text_message}&chat_id={chat_id}"
@@ -72,13 +62,13 @@ def parse_event_message(message):
             'завтра': ['завтра', 'завтро', 'zavtra']    
         }
         weekdays = {
-            'в этот понедельник': 0, 'в понедельник': 0, 'понедельник': 0, 'v ponedelnik': 0, 'впонедельник': 0, 'vponedelnik': 0, 'понидельник': 0, 'monday': 0, 
-            'в этот вторник': 1, 'во вторник': 1, 'в вторник': 1, 'вторник': 1, 'v vtornik': 1, 'vo vtornik': 1, 'tuesday': 1, 
-            'в эту среду': 2, 'в среду': 2, 'среда': 2, 'среду': 2, 'wednesday': 2,
-            'в этот четверг': 3, 'в четверг': 3, 'четверг': 3, 'Thursday': 3,
-            'в эту пятницу': 4, 'в пятницу': 4, 'пятница': 4, 'пятницу': 4, 'friday': 4,
-            'в эту субботу': 5, 'в субботу': 5, 'суббота': 5, 'субботу': 5, 'subbota': 5, 'subboty': 5, 'saturday': 5,
-            'в это воскресенье': 6, 'в это воскресение': 6, 'в воскресение': 6, 'в воскресенье': 6, 'воскресенье': 6, 'воскресенью': 6, 'воскресение': 6, 'voskresenie': 6, 'sunday': 6
+            'в понедельник': 0, 'понедельник': 0, 'v ponedelnik': 0, 'впонедельник': 0, 'vponedelnik': 0, 'понидельник': 0, 'monday': 0,
+            'во вторник': 1, 'в вторник': 1, 'вторник': 1, 'v vtornik': 1, 'vo vtornik': 1, 'tuesday': 1,
+            'в среду': 2, 'среда': 2, 'среду': 2, 'wednesday': 2,
+            'в четверг': 3, 'четверг': 3, 'Thursday': 3,
+            'в пятницу': 4, 'пятница': 4, 'пятницу': 4, 'friday': 4,
+            'в субботу': 5, 'суббота': 5, 'субботу': 5, 'subbota': 5, 'subboty': 5, 'saturday': 5,
+            'в воскресение': 6, 'в воскресенье': 6, 'воскресенье': 6, 'воскресенью': 6, 'воскресение': 6, 'voskresenie': 6, 'sunday': 6
         }
         for base_keyword, date_str in date_keywords.items():
             for variation in keyword_variations.get(base_keyword, [base_keyword]):
@@ -98,7 +88,7 @@ def parse_event_message(message):
         
             # ---------
         date_pattern = r"(?:\d{2}[./-]\d{2}[./-]\d{4}|\d{2}[./-]\d{2}[./-]\d{2}|\d{4}[./-]\d{2}[./-]\d{2})"
-        
+        time_pattern = r"\d{2}:\d{2}"
         datedetect = re.search(date_pattern, message)
         if datedetect:
             date = datedetect.group(0)
@@ -110,31 +100,12 @@ def parse_event_message(message):
         else:
             return None
 
-        time_patterns = [
-            r'в (\d{2}):(\d{2})',      # в 20:30
-            r'в (\d{2}) (\d{2})',      # в 20 30
-            r'в (\d{2})(?::| )?',       # в 20 (с возможными : или пробелом после)
-            r'(\d{2}):(\d{2})',         # просто 20:30
-            r'(\d{2}) (\d{2})',         # просто 20 30
-        ]
-        time = None
-        for pattern in time_patterns:
-            match = re.search(pattern, text)
-            if match:
-                groups = match.groups()
-                if len(groups) == 2:
-                    hours, minutes = groups
-                else:
-                    hours = groups[0]
-                    minutes = "00"
-                if 0 <= int(hours) <= 23 and 0 <= int(minutes) <= 59:
-                    time = f"{int(hours):02d}:{int(minutes):02d}"
-                    text = text[:match.start()] + text[match.end():]
-                    break  
-        if not time:
-            return None 
-        
-        event = ' '.join(text.strip().split())
+        timedetect = re.search(time_pattern, message)
+        if timedetect:
+            time = timedetect.group(0)
+            event = text.replace(time, "")
+        else:
+            return None
         return {"time": time, "day": day, "event": event}
     
     except Exception as e:
@@ -186,25 +157,9 @@ def run():
             message_data, offset = getLastMessage(offset)
             if message_data is None:
                 continue
-            
             if "@timeassistBot" in message_data.last_msg:
                 message = message_data.last_msg.replace("@timeassistBot", "").strip()
                 parsed_event = parse_event_message(message)
-                if message.lower() == "/help":
-                    help_message = """
-    📌 *Как пользоваться ботом:*
-    1. Чтобы добавить событие, напишите в формате:
-    *"дд.мм.гг чч:мм событие"*
-    Например: "12.12.2023 15:30 Встреча с клиентом"
-
-    2. Можно использовать слова:
-    - "завтра 10:00 Совещание"
-    - "в пятницу в 18:00 Ужин"
-
-    3. Бот напомнит о событии за 30 минут
-                    """
-                    sendMessage(message_data.chat_id, help_message)
-                    continue
                 if parsed_event:
                     event_id = book_timeslot(
                         parsed_event["event"],
@@ -213,7 +168,10 @@ def run():
                         message_data.user_name,
                     )
                     if event_id:
-                        setMessageReaction(message_data.chat_id, message_data.message_id)
+                        sendMessage(
+                            message_data.chat_id,
+                            "Событие успешно добавлено в календарь!",
+                        )
                         add_event_to_list(
                             parsed_event["time"],
                             parsed_event["day"],
@@ -227,12 +185,12 @@ def run():
                     else:
                         sendMessage(
                             message_data.chat_id,
-                            "Ошибка при добавлении события в календарь. Используй @timeassistBot /help",
+                            "Ошибка при добавлении события в календарь.",
                         )
                 else:
                     sendMessage(
                         message_data.chat_id,
-                        "Привет, не могу понять дату или время, используй: дд.мм.гг, чч:мм, событие. Все получится.",
+                        "Привет, но у тебя неправильный формат, используй: время, день, событие. Все получится.",
                     )
             else:
                 continue
