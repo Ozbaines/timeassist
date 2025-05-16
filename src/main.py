@@ -8,7 +8,7 @@ import requests
 
 from scheduler import book_timeslot, check_event_exists
 
-with open("config/config.json", "r") as config_file: #Для контейнера: /timeassist/src/config/config.json
+with open("/timeassist/src/config/config.json", "r") as config_file: #Для контейнера: /timeassist/src/config/config.json Для локал:"config/config.json"
     config = json.load(config_file)
     api_key = config["api_key"]
 
