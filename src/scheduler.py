@@ -11,17 +11,21 @@ SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 def get_calendar_service():
     creds = None
-    if os.path.exists('/timeassist/src/config/token.pickle'):  #/timeassist/src/config/token.pickle #config/token.pickle
-        with open('/timeassist/src/config/token.pickle', 'rb') as token: #/timeassist/src/config/token.pickle #config/token.pickle
+    if os.path.exists('config/token.pickle'):  #/timeassist/src/config/token.pickle #config/token.pickle
+        with open('config/token.pickle', 'rb') as token: #/timeassist/src/config/token.pickle #config/token.pickle
             creds = pickle.load(token)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                '/timeassist/src/config/config/credentials.json', SCOPES) #/timeassist/src/config/config/credentials.json #config/credentials.json
-            creds = flow.run_local_server(port=55560)
-        with open('/timeassist/src/config/token.pickle', 'wb') as token: #/timeassist/src/config/token.pickle #config/token.pickle
+            'config/credentials_desktop.json',
+            scopes=SCOPES)
+            creds = flow.run_local_server(
+            port=55561,
+            access_type='offline',  # ← Правильное расположение
+            prompt='consent') #/timeassist/src/config/credentials.json #config/credentials.json
+        with open('config/token.pickle', 'wb') as token: #/timeassist/src/config/token.pickle #config/token.pickle
             pickle.dump(creds, token)
     return build('calendar', 'v3', credentials=creds)
 
