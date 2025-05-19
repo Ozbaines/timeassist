@@ -1,5 +1,6 @@
 config.json
 credentials.json
+credentials_desktop.json
 .DS_Store
 **/__pycache__*
 token.pickle
